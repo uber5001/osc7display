@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use rosc::{self, encoder, OscPacket, OscMessage, OscType};
 use ascii::{AsciiChar};
 
@@ -16,24 +17,14 @@ impl epi::App for Egui7DisplayApp {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            //ui.spacing_mut().item_spacing = Vec2::new(1f32, 200f32);
             ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
-                //let last_text = self.text.clone();
-                //let last_text_len = last_text.len();
                 let response = ui.add(egui::TextEdit::singleline(&mut self.text).font(self.font_id.clone()));
-                //let text_len = self.text.len();
+                
                 if response.changed() {
                     self.text = self.text.chars().take(50).collect();
                     self.tx.send(self.text.clone()).expect("Couldn't send string to other thread");
-                    // if text_len == 0 {
-                    //     self.send_char(AsciiChar::LineFeed.as_char());
-                    // } else if text_len > last_text_len {
-                    //     let last_char = self.text.chars().last().unwrap();
-                    //     self.send_char(last_char);
-                    // } else if text_len < last_text_len {
-                    //     self.send_char(AsciiChar::BackSpace.as_char());
-                    // }
                 }
+
                 if response.lost_focus() && ui.input().key_pressed(egui::Key::Enter) {
                     self.text = "".to_string();
                     self.tx.send(self.text.clone()).expect("Couldn't send string to other thread");
@@ -52,19 +43,6 @@ impl Egui7DisplayApp {
             font_id: egui::FontId::monospace(60.0),
             tx
         };
-        
-        //let mut interval = time::interval(Duration::from_millis(10));
-
-        // let forever_app = &app;
-        // let forever = task::spawn(async {
-            
-        //     let mut interval = time::interval(Duration::from_millis(10));
-    
-        //     loop {
-        //         interval.tick();
-        //         forever_app.sync_display();
-        //     }
-        // });
                 
         app
     }
@@ -121,27 +99,20 @@ async fn keystroke_processor(mut rx: tokio::sync::watch::Receiver<String>) {
                 AsciiChar::LineFeed.as_char()
             } else if next_display_value.starts_with(&current_display_value) {
                 //characters typed, send 1 char
-                //println!("V");
                 let cur_len = current_display_value.chars().count();
                 let next_char = next_display_value.chars().skip(cur_len).next().expect("Couldn't find another char somehow");
                 current_display_value.push(next_char);
                 next_char
             } else if current_display_value.starts_with(&next_display_value) {
                 //characters deleted, delete 1 char
-                //println!("D");
                 current_display_value.pop();
                 AsciiChar::BackSpace.as_char()
             } else {
                 //totally different string, just clear it
-                //println!("E");
                 current_display_value.clear();
                 AsciiChar::LineFeed.as_char()
             };
-            let send_char_result = send_char(&socket, last_sent_char, char_to_send).await;
-            match send_char_result {
-                Ok(_) => println!("Ok"),
-                Err(_) => println!("Err"),
-            }
+            send_char(&socket, last_sent_char, char_to_send).await.unwrap();
             last_sent_char = char_to_send;
             
             //TODO: this line is repeated above, figure out how to deduplicate it
